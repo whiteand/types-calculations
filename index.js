@@ -261,33 +261,39 @@ var concat = R.curry((t1, t2) => {
 var concatAll = R.reduce((res, t) => concat(res, t), E)
 
 
-const getType = (value) => {
-  const type = R.type(value)
-  switch (true) {
-    case R.contains(type, ['Number', 'Boolean', 'String', 'Null', 'RegExp', 'Undefined']):
-      return type
-    case value instanceof Date:
-      return `Date`
-    case value instanceof Promise:
-      return 'Promise'
-    case type === 'Function':
-      return value.length
-      ? `Function (${value.length})`
-      : `Function (void)`
-    case type === 'Array':
-      return value.length 
-       ? minimifyArrayType(R.pipe(
-          R.map(getType),
-          R.uniqWith(equals))(value))
-       : []
-    case type === 'Object':
-      const keys = Object.keys(value)
-      return keys.reduce((res, key)=>{
-        return R.assoc(key, getType(value[key]), res)
-      }, {})
-    default:
-      return type
+const getType = function(value) {
+  const _getType = (value, path, pathNames) => {
+    const type = R.type(value)
+    if (R.contains(value, path)) {
+      return `${type}[${pathNames.join(', ')}]`
+    }
+    switch (true) {
+      case R.contains(type, ['Number', 'Boolean', 'String', 'Null', 'RegExp', 'Undefined']):
+        return type
+      case value instanceof Date:
+        return `Date`
+      case value instanceof Promise:
+        return 'Promise'
+      case type === 'Function':
+        return value.length
+        ? `Function (${value.length})`
+        : `Function (void)`
+      case type === 'Array':
+        return value.length 
+         ? minimifyArrayType(R.pipe(
+            arr => arr.map((e, i, arr) => _getType(e, R.append(value, path), R.append(i, pathNames))),
+            R.uniqWith(equals))(value))
+         : []
+      case type === 'Object':
+        const keys = Object.keys(value)
+        return keys.reduce((res, key)=>{
+          return R.assoc(key, _getType(value[key], R.append(value, path), R.append(key, pathNames)), res)
+        }, {})
+      default:
+        return type
+    }
   }
+  return _getType(value, [], ['value'])
 }
 
 module.exports = {
