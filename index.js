@@ -265,7 +265,8 @@ const getType = function(value) {
   const _getType = (value, path, pathNames) => {
     const type = R.type(value)
     if (R.contains(value, path)) {
-      return `${type}[${pathNames.join(', ')}]`
+      const index =  path.findIndex(e => e === value)
+      return `${type}[${pathNames.slice(0, index+1).join(', ')}]`
     }
     switch (true) {
       case R.contains(type, ['Number', 'Boolean', 'String', 'Null', 'RegExp', 'Undefined']):

@@ -1,6 +1,6 @@
 {
   "name": "deep-typeof",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Research about js types",
   "main": "index.js",
   "scripts": {
