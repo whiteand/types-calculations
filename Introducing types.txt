@@ -1,24 +1,24 @@
 Introducing types
 
 ONE_OF :: uniq JS value that can be checked by '===' and '!=='
-S, O, A, P :: uniq JS values 
+E, S, A, O, P :: uniq JS values 
 NONE :: falsy JS value
 
 Assume T =
+  | E (means Empty, but NOT ONE_OF)
   | S string(but NOT ONE_OF)
       (ex. 'String', 'Null', ...)
-  | O object { 'key1': T1, 'key2': T2, 'key3': T3, ...} (but NOT ONE_OF)
-      (ex. {a: 'String', b: 'Number'})
   | A [T1, T2, T3, ...] (but NOT ONE_OF)
       (ex. ['String', 'Number'])
+  | O object { 'key1': T1, 'key2': T2, 'key3': T3, ...} (but NOT ONE_OF)
+      (ex. {a: 'String', b: 'Number'})
   | P [ONE_OF, T1, T2, T3, ...] (but NOT ONE_OF)
       (ex. [ONE_OF, 'String', 'Number'])
-  | E (means Empty, but NOT ONE_OF
 
-is(S|O|A|P) :: T -> Boolean
+is(S|A|O|P) :: T -> Boolean
 isS t = typeof t === 'string' && t !== ONE_OF
-isO t = typeof t === 'object' && !Array.isArray(t) && t !== ONE_OF
 isA t = Array.isArray(t) && t !== ONE_OF 
+isO t = typeof t === 'object' && !Array.isArray(t) && t !== ONE_OF
 isP t = Array.isArray(t) && t.length > 3 && t[0] === ONE_OF && t !== ONE_OF 
 iSE t = t === E && t !== ONE_OF
 
@@ -168,6 +168,25 @@ concat t1 t2
 
 
 
+getType :: any value -> (E|S|O|A|P)
+getType v
+  | contains(type, ['Number', 'Boolean', 'String', 'Null', 'Regexp', 'Undefined']) => S type
+  | v instanceof Date => S 'Date'
+  | type === 'Function' => S v.length
+    ? `Function (${v.length})`
+    : `Function (0)`
+  | type === 'Array' => A pipe(map(getType), uniqWith(equals))(v)
+  | type === 'Object' => O keys.reduce((res, key)=>{
+    return assoc(key, getType(v[key]), res)
+  }, {})
+  | otherwise = E
+  where type = ramda.type(v)
+        
+
+
+
+
+
 
 
 
@@ -221,4 +240,5 @@ isValidAndEquals :: any value -> any value -> Boolean
 isValidAndEquals t1 t2
  | [t1, t2].some(t => !isValid(t)) => false
  | equals(t1,t2)
+
 

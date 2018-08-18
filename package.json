@@ -1,0 +1,22 @@
+{
+  "name": "js-types",
+  "version": "0.0.1",
+  "description": "Research about js types",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/whiteand/types-calculations.git"
+  },
+  "author": "Andrew Beletskiy",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/whiteand/types-calculations/issues"
+  },
+  "homepage": "https://github.com/whiteand/types-calculations#readme",
+  "dependencies": {
+    "ramda": "^0.25.0"
+  }
+}
