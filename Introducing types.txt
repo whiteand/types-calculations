@@ -1,0 +1,224 @@
+Introducing types
+
+ONE_OF :: uniq JS value that can be checked by '===' and '!=='
+S, O, A, P :: uniq JS values 
+NONE :: falsy JS value
+
+Assume T =
+  | S string(but NOT ONE_OF)
+      (ex. 'String', 'Null', ...)
+  | O object { 'key1': T1, 'key2': T2, 'key3': T3, ...} (but NOT ONE_OF)
+      (ex. {a: 'String', b: 'Number'})
+  | A [T1, T2, T3, ...] (but NOT ONE_OF)
+      (ex. ['String', 'Number'])
+  | P [ONE_OF, T1, T2, T3, ...] (but NOT ONE_OF)
+      (ex. [ONE_OF, 'String', 'Number'])
+  | E (means Empty, but NOT ONE_OF
+
+is(S|O|A|P) :: T -> Boolean
+isS t = typeof t === 'string' && t !== ONE_OF
+isO t = typeof t === 'object' && !Array.isArray(t) && t !== ONE_OF
+isA t = Array.isArray(t) && t !== ONE_OF 
+isP t = Array.isArray(t) && t.length > 3 && t[0] === ONE_OF && t !== ONE_OF 
+iSE t = t === E && t !== ONE_OF
+
+// Types are Setoid------------------------------------------------------------
+
+containsSameValues arr1 arr2 => compose(isEmpty, symmetricDifference)
+containsSameValuesWith eq arr1 arr2 => compose(isEmpty, symmetricDifferenceWith(eq))
+
+equalsS s1 s2 => s1 === s2
+equalsA a1 a2 => containsSameValuesWith(equals, a1, a2))
+equalsP p1 p2 => containsSameValuesWith(equals, p1.slice(1), p2.slice(1)))
+equalsO obj1 obj2 => containsSameValues(Object.keys(obj1), Object.keys(obj2)) && Object.keys(t1).every(key => equals(obj1[key], t2[key]))
+equalsE e1 e2 => true
+
+equals :: T -> T -> Boolean
+equals t1 t2
+ | isS(t1) && isS(t2) => equalsS(t1,t2)
+ | isA(t1) && isA(t2) => equalsA(t1,t2)
+ | isP(t1) && isP(t2) => equalsP(t1,t2)
+ | isO(t1) && isO(t2) => equalsO(t1,t2)
+ | isE(t1) && isE(t2) => equalsE(t1,t2)
+ | otherwise => false
+
+// Types are Ord---------------------------------------------------------------
+
+getSortedArrayOfTypes :: [T] -> [T]
+getSortedArrayOfTypes a = clone(a).sort((t1,t2) => lte(t1,t2) ? -1 : 1)
+
+lteSortedTypesArray [T] -> [T] -> Boolean
+lteSortedTypesArray a1 a2
+ | isEmpty(a1) && isEmpty(a2) => true
+ | lte(head(a1), head(a2)) => true
+ | otherwise => lteSortedTypesArray(tail(a1), tail(a2))
+
+lteE :: E -> E -> Boolean
+lteE e1 e2 => true
+
+lteS :: S -> S -> Boolean
+lteS t1 t2 => t1 <= t2
+
+lteA :: A -> A -> Boolean
+lteA a1 a2 = 
+  | |a1| < |a2| => true
+  | |a1| > |a2| => false
+  | otherwise = lteSortedTypesArray(lte, getSortedArrayOfTypes(lte, a1), getSortedArrayOfTypes(lte, a2))
+
+lteP :: P -> P -> Boolean
+lteP p1 p2
+ | |p1| < |p2| => true
+ | |p1| > |p2| => false
+ | otherwise => lteSortedTypesArray(lte, sortedTypes1, sortedTypes2)
+  where sortedTypes1 = getSortedArrayOfTypes(lte, types1)
+        types1 = p1.slice(1)
+        sortedTypes2 = getSortedArrayOfTypes(lte, types2)
+        types2 = p2.slice(1)
+
+lteO :: O -> O -> Boolean
+lteO obj1 obj2
+ | |keys1| < |keys2| => true
+ | |keys1| > |keys2| => false
+ | joinedKeys1 < joinedKeys2 => true
+ | joinedKeys1 > joinedKeys2 => false
+ | otherwise lteSortedTypesArray(lte, types1, types2)
+  where types1 = skeys1.map(key => obj1[key])
+        types2 = skeys2.map(key => obj2[key])
+        joinedKeys1 = skeys1.join('')
+        joinedKeys2 = skeys2.join('')
+        skeys1 = clone(keys1).sort()
+        skeys2 = clone(keys2).sort()
+        keys1 = keys(obj1))
+        keys2 = keys(obj2))
+
+
+lte :: T -> T -> Boolean
+lte t1 t2
+ | isE(t1) && isE(t2) => lteE(t1, t2)
+ | isS(t1) && isS(t2) => lteS(t1, t2)
+ | isA(t1) && isA(t2) => lteA(t1, t2)
+ | isO(t1) && isO(t2) => lteO(t1, t2)
+ | isP(t1) && isP(t2) => lteP(t1, t2)
+ | isE(t1) => true
+ | isS(t1) => [isA, isO, isP].some(f => f(t2))
+ | isA(t1) => [isO, isP].some(f => f(t2))
+ | isO(t1) => isP(t2)
+ | isP(t1) => false
+ | return => false
+
+
+// Types are Monoid---------------------------------------------------------
+empty :: T
+empty = E
+
+concatS :: S -> S -> P
+concatS s1 s2 => [ONE_OF, s1, s2]
+concatA :: A -> A -> P
+concatA a1 a2 => [ONE_OF, a1, a2]
+
+concatSameStructureO :: O -> O -> O
+concatSameStructureO obj1 obj2 => Object.keys(obj1).reduce((resObj, key) => {
+  const t1 = obj1[key]
+  const t2 = obj2[key]
+  const newType = concat(t1,t2)
+  resObj[key] = newType
+ }, {})
+
+hasSameStructureO :: O -> O -> Boolean
+hasSameStrcture obj1 obj2 = containsSameValues(keys1, keys2)
+  where keys1 = keys(obj1)
+        keys2 = keys(obj2)
+
+concatS :: S -> S -> T
+concatO obj1 obj2 =>
+  | hasSameStructureO obj1 obj2 => concatSameStructureO a1 a2
+  | otherwise = [ONE_OF, obj1, obj2]
+  
+
+
+concatDifferent :: T -> T -> T
+ | |posRes| === 1 => E
+ | |posRes| === 2 => posRes[1]
+ | otherwise => posRes
+  where posRes = [ONE_OF, ...sTypes, ...aTypes, ...concatenatedOTypes.slice(1))]
+        concatenatedOTypes = oTypes.reduce((resOTypes, obj) => {
+          const ind = resOTypes.findIndex(t => hasSameStructureO(t, obj))
+          if (ind < 0) return [...resTypes, obj]
+          const concatenatedObjLens = lensIndex(ind)
+          return over(concatenatedObjLens, concatSameStructureO(obj), resTypes)
+        }, [])
+        sTypes = filter(isS, allTypes)
+        aTypes = filter(isA, allTypes)
+        oTypes = filter(isO, allTypes)
+        allTypes = uniqWith(equals, [...types1, ...types2])
+
+
+
+
+concat :: T -> T -> T
+concat t1 t2
+ | isE(t1) => t2
+ | isE(t2) => t1
+ | equals(t1,t2) => t1
+ | isS(t1) && isS(t2) => concatS(t1,t2)
+ | isA(t1) && isA(t2) => concatA(t1,t2)
+ | isO(t1) && isO(t2) => concatO(t1,t2)
+ | isP(t1) && isP(t2) => concatP(t1,t2)
+ | otherwise => concatDifferent t1 t2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+isValid :: any value -> Boolean
+isValid t
+ | if isS t => true => true
+ | if (isO t) && Object.keys(t).every(key => isValid(t[key])) => true
+ | if (isP t) && t.slice(1).every(t => isValid(t)) => true // P
+ | if (isA t) && t.every(t => isValid(t)) => true // A
+ | otherwise => false
+
+
+isValidVerbose :: any value -> { isValid: Boolean, isIn: S | O | A | P | NONE }
+isValidVerbose t
+ | if isS t => { isValid: true, typeClass: S }
+ | if (isO t) && Object.keys(t).every(key => isValid(t[key])) => { isValid: true, typeClass: O }
+ | if (isP t) && t.slice(1).every(t => isValid(t)) => { isValid: true, typeClass: P }
+ | if (isA t) && t.every(t => isValid(t)) => { isValid: true, typeClass: A }
+ | otherwise => { isValid: false, typeClass: NONE}
+
+
+isValidS :: any value -> Bolean
+isValidS t = isValid && typeClass === S
+  where { isValid, typeClass } = isValidVerbose t
+
+isValidO :: any value -> Bolean
+isValidO t = isValid && typeClass === O
+  where { isValid, typeClass } = isValidVerbose t
+
+isValidA :: any value -> Bolean
+isValidA t = isValid && typeClass === A
+  where { isValid, typeClass } = isValidVerbose t
+
+isValidP :: any value -> Bolean
+isValidP t = isValid && typeClass === P
+  where { isValid, typeClass } = isValidVerbose t
+
+isValidAndEquals :: any value -> any value -> Boolean
+isValidAndEquals t1 t2
+ | [t1, t2].some(t => !isValid(t)) => false
+ | equals(t1,t2)
+
