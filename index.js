@@ -321,11 +321,11 @@ const getType = function(value, typesAliases = {}) {
 const toJSDocTypeA = (t, level, TAB, NEW_LINE) => {
   if (R.isEmpty(t)) return '[]'
 
-    let arrItemType = t.map(t => toJSDocType(t, level, TAB, NEW_LINE)).join("|")
+  let arrItemType = t.map(t => toJSDocType(t, level, TAB, NEW_LINE)).join("|")
 
-    if (t.length > 1) arrItemType = `(${arrItemType})`
+  if (t.length > 1) arrItemType = `(${arrItemType})`
 
-    return `${arrItemType}[]`
+  return `${arrItemType}[]`
 }
 
 const toJSDocTypeP = (t, level, TAB, NEW_LINE) => {
