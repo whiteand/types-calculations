@@ -261,77 +261,115 @@ var concat = R.curry((t1, t2) => {
 var concatAll = R.reduce((res, t) => concat(res, t), E)
 
 
-const getType = function(value) {
+/**
+ * @callback GetType
+ * @param {*} any value of javascript
+ * @param {object.<alias, type>} typesAliases
+ * @returns {Type} type of value of javascript
+ */
+/**
+ * @type GetType
+ */
+const getType = function(value, typesAliases = {}) {
   const _getType = (value, path, pathNames) => {
     const type = R.type(value)
     if (R.contains(value, path)) {
       const index =  path.findIndex(e => e === value)
       return `${type}[${pathNames.slice(0, index+1).join(', ')}]`
     }
+    let res = E
     switch (true) {
       case R.contains(type, ['Number', 'Boolean', 'String', 'Null', 'RegExp', 'Undefined']):
-        return type
+        res = type
+        break;
       case value instanceof Date:
-        return `Date`
+        res =  `Date`
+        break;
       case value instanceof Promise:
-        return 'Promise'
+        res = 'Promise'
+        break;
       case type === 'Function':
-        return value.length
+        res = value.length
         ? `Function (${value.length})`
         : `Function (void)`
+        break;
       case type === 'Array':
-        return value.length 
+        res =  value.length 
          ? minimifyArrayType(R.pipe(
             arr => arr.map((e, i, arr) => _getType(e, R.append(value, path), R.append(i, pathNames))),
             R.uniqWith(equals))(value))
          : []
+        break;
       case type === 'Object':
         const keys = Object.keys(value)
-        return keys.reduce((res, key)=>{
+        res = keys.reduce((res, key)=>{
           return R.assoc(key, _getType(value[key], R.append(value, path), R.append(key, pathNames)), res)
         }, {})
+        break;
       default:
-        return type
+        res = type
     }
+    const [alias] = R.toPairs(typesAliases).find(([currentAlias, type]) => equals(type, res)) || []
+    return alias  
+      ? alias
+      : res
+
   }
   return _getType(value, [], ['value'])
 }
 
-const toJSDocType = (t, level = 0) => {
-  if (Array.isArray(t)) {
-    if (t.length === 0) return "[]";
-    if (t[0] === ONE_OF)
-      return `(${t
-        .slice(1)
-        .map(t => toJSDocType(t, level))
-        .join("|")})`;
-    return t.length > 1 ?
-      `(${t.map(t => toJSDocType(t, level)).join("|")})[]` :
-      `${toJSDocType(t[0], level)}[]`;
+const toJSDocTypeA = (t, level, TAB, NEW_LINE) => {
+  if (R.isEmpty(t)) return '[]'
+
+    let arrItemType = t.map(t => toJSDocType(t, level, TAB, NEW_LINE)).join("|")
+
+    if (t.length > 1) arrItemType = `(${arrItemType})`
+
+    return `${arrItemType}[]`
+}
+
+const toJSDocTypeP = (t, level, TAB, NEW_LINE) => {
+  const options = t.slice(1)
+  const optionsJSDoc = options.map(opt => toJSDocType(opt, level, TAB, NEW_LINE))
+  const optionsText = optionsJSDoc.join('|')
+  return `(${optionsText})`
+}
+
+const toJSDocTypeES = t => `${t}`
+
+const toJSDocTypeO = (t, level, TAB, NEW_LINE) => {
+  const pairToJsDocObj = ([propName, type]) => ({
+    propName,
+    jsdocType: toJSDocType(type, level + 1, TAB, NEW_LINE )
+  })
+
+  const jsDocObjToPropDesc = ({ propName, jsdocType }, i, a) => `${propName}: ${jsdocType}${i === a.length - 1 ? '' : ','}`
+  const propDescToPropDescsWithTabs = propDesc => `${TAB.repeat(level + 1)}${propDesc}`
+  const propDescWithTabsToMultiline = propDescsWithTabs => propDescsWithTabs.join(NEW_LINE)
+  const addCurlyBraces = str => `{${NEW_LINE}${str}${NEW_LINE}${TAB.repeat(level)}}`
+
+  const getObjectTypeJSDoc = R.pipe(
+    R.toPairs,
+    R.map(pairToJsDocObj),
+    jsDocObjs => jsDocObjs.map(jsDocObjToPropDesc),
+    R.map(propDescToPropDescsWithTabs),
+    propDescWithTabsToMultiline,
+    addCurlyBraces
+  )
+  return getObjectTypeJSDoc(t)
+}
+
+const toJSDocType = (t, level = 0, TAB = '  ', NEW_LINE = '\n') => {
+  if (isA(t)) {
+    return toJSDocTypeA(t, level, TAB, NEW_LINE)
   }
-  if (typeof t !== "object") return `${t}`;
-  const TAB = "  ";
-  const properties = Object.keys(t);
-  const propertiesJSDocTypes = properties
-    .map((prop, i, a) => {
-      console.log(prop, level + 1)
-      return {
-        propName: prop,
-        type: toJSDocType(t[prop], level + 1)
-      }
-    })
-    .map(
-      ({
-        propName,
-        type
-      }, ind, a) =>
-      `${propName}: ${type}${ind === a.length - 1 ? "" : ","}`
-    );
-  return `{
-${propertiesJSDocTypes
-    .map(propDesc => `${TAB.repeat(level + 1)}${propDesc}`)
-    .join("\n")}
-${TAB.repeat(level)}}`;
+  if (isP(t)) {
+    return toJSDocTypeP(t, level, TAB, NEW_LINE)
+  }
+  if (!isO(t)) {
+    return toJSDocTypeES(t, level, TAB, NEW_LINE)
+  }
+  return toJSDocTypeO(t, level, TAB, NEW_LINE)
 };
 
 
