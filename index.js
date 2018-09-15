@@ -297,6 +297,44 @@ const getType = function(value) {
   return _getType(value, [], ['value'])
 }
 
+const toJSDocType = (t, level = 0) => {
+  if (Array.isArray(t)) {
+    if (t.length === 0) return "[]";
+    if (t[0] === ONE_OF)
+      return `(${t
+        .slice(1)
+        .map(t => toJSDocType(t, level))
+        .join("|")})`;
+    return t.length > 1 ?
+      `(${t.map(t => toJSDocType(t, level)).join("|")})[]` :
+      `${toJSDocType(t[0], level)}[]`;
+  }
+  if (typeof t !== "object") return `${t}`;
+  const TAB = "  ";
+  const properties = Object.keys(t);
+  const propertiesJSDocTypes = properties
+    .map((prop, i, a) => {
+      console.log(prop, level + 1)
+      return {
+        propName: prop,
+        type: toJSDocType(t[prop], level + 1)
+      }
+    })
+    .map(
+      ({
+        propName,
+        type
+      }, ind, a) =>
+      `${propName}: ${type}${ind === a.length - 1 ? "" : ","}`
+    );
+  return `{
+${propertiesJSDocTypes
+    .map(propDesc => `${TAB.repeat(level + 1)}${propDesc}`)
+    .join("\n")}
+${TAB.repeat(level)}}`;
+};
+
+
 module.exports = {
   ONE_OF,
   E,
@@ -338,5 +376,6 @@ module.exports = {
   concatP,
   concat,
   concatAll,
-  getType
+  getType,
+  toJSDocType
 }
